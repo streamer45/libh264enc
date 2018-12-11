@@ -44,20 +44,33 @@ static int h264enc_load_param(h264enc_t *enc) {
 
   param->i_width = cfg->width;
   param->i_height = cfg->height;
-  param->rc.i_bitrate = cfg->bitrate;
   param->rc.i_rc_method = X264_RC_ABR;
+  param->rc.i_bitrate = cfg->bitrate;
+  //param->rc.i_vbv_max_bitrate = cfg->bitrate;
+  //param->rc.i_vbv_buffer_size = param->rc.i_vbv_max_bitrate * 600 / 1000;
+
   param->i_threads = cfg->threads;
+  //param->b_vfr_input = 1;
   param->i_fps_num = cfg->fps;
   param->i_fps_den = 1;
-  // param->i_timebase_num = 60;
-  // param->i_timebase_den = 1;
+  //param->i_timebase_num = 1;
+  //param->i_timebase_den = 90000;
   param->i_level_idc = cfg->level;
   param->i_keyint_max = cfg->gop;
-  param->b_intra_refresh = 1;
 
+  param->b_intra_refresh = 0;
   param->b_repeat_headers = 1;
   param->b_annexb = 1;
+  param->b_aud = 1;
+
   param->i_csp = formats[cfg->fmt];
+  // param->vui.i_sar_width = 1;
+  // param->vui.i_sar_height = 1;
+  // param->vui.i_vidformat = 5;
+  // param->vui.i_colorprim = 6;
+  // param->vui.i_transfer = 1;
+  // param->vui.i_colmatrix = 5;
+  // param->vui.i_chroma_loc = 1;
 
   return 0;
 }
@@ -88,7 +101,7 @@ int h264enc_destroy(h264enc_t *h264) {
   return 0;
 }
 
-int h264enc_encode(h264enc_t *h264, uint8_t *in, size_t len, h264_out_t *out) {
+int h264enc_encode(h264enc_t *h264, h264_in_t *in, h264_out_t *out) {
   int i;
   int ret;
   int nnals;
@@ -96,14 +109,15 @@ int h264enc_encode(h264enc_t *h264, uint8_t *in, size_t len, h264_out_t *out) {
   x264_picture_t in_pic;
   x264_picture_t out_pic;
 
-  if (!h264 || !in || !len || !out) return -1;
-  if (len < h264->config.width * h264->config.height * 1.5) return -2;
+  if (!h264 || !in || !out) return -1;
+  if (in->len < h264->config.width * h264->config.height * 1.5) return -2;
 
   x264_picture_init(&in_pic);
   x264_picture_init(&out_pic);
 
   out_pic.param = &h264->param;
   in_pic.param = &h264->param;
+  in_pic.i_pts = in->pts;
   in_pic.img.i_csp = h264->param.i_csp;
 
   if (h264->config.fmt == H264_IMG_FMT_I420) {
@@ -111,8 +125,8 @@ int h264enc_encode(h264enc_t *h264, uint8_t *in, size_t len, h264_out_t *out) {
     in_pic.img.i_stride[0] = h264->config.width;
     in_pic.img.i_stride[1] = h264->config.width / 2;
     in_pic.img.i_stride[2] = h264->config.width / 2;
-    in_pic.img.plane[0] = in;
-    in_pic.img.plane[1] = in + (h264->config.width
+    in_pic.img.plane[0] = in->data;
+    in_pic.img.plane[1] = in->data + (h264->config.width
      * h264->config.height);
     in_pic.img.plane[2] = in_pic.img.plane[1] + (h264->config.width
      * h264->config.height / 4);
@@ -127,10 +141,12 @@ int h264enc_encode(h264enc_t *h264, uint8_t *in, size_t len, h264_out_t *out) {
     h264->nals[i].len = nals[i].i_payload;
     h264->nals[i].padding = nals[i].i_padding;
     h264->nals[i].type = nals[i].i_type;
+    h264->nals[i].longsc = nals[i].b_long_startcode;
   }
 
   out->nals = (h264_nal_t *)&h264->nals;
   out->n = nnals;
+  out->pts = out_pic.i_pts;
 
   return 0;
 }

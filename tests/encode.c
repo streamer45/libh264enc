@@ -21,6 +21,7 @@ int test() {
   int fd;
   h264enc_t *h264;
   h264enc_config_t config;
+  h264_in_t in;
   h264_out_t out;
 
   memset(&config, 0, sizeof(config));
@@ -48,12 +49,16 @@ int test() {
   int len = config.width * config.height * 1.5;
 
   uint8_t *data = malloc(len);
+  uint64_t frames = 0;
 
   for (;;) {
     ret = read(fd, data, len);
     if (ret == 0) break;
     if (ret != len) return -3;
-    ret = h264enc_encode(h264, data, len, &out);
+    in.data = data;
+    in.len = ret;
+    in.pts = (++frames);
+    ret = h264enc_encode(h264, &in, &out);
     if (ret != 0) return -4;
     for (int i = 0; i < out.n; ++i) {
       write(1, out.nals[i].data, out.nals[i].len);

@@ -1,3 +1,6 @@
+#if !defined(_libh264enc_H)
+# define _libh264enc_H (1)
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -53,13 +56,24 @@ typedef struct {
   uint8_t *data;
   int len;
   int padding;
+  int longsc;
+  int end_of_au;
 } h264_nal_t;
 
 typedef struct {
   h264_nal_t *nals;
   int n;
+  int64_t pts;
 } h264_out_t;
+
+typedef struct {
+  uint8_t *data;
+  size_t len;
+  int64_t pts;
+} h264_in_t;
 
 h264enc_t *h264enc_create(h264enc_config_t *cfg);
 int h264enc_destroy(h264enc_t *h264);
-int h264enc_encode(h264enc_t *h264, uint8_t *in, size_t len, h264_out_t *out);
+int h264enc_encode(h264enc_t *h264, h264_in_t *in, h264_out_t *out);
+
+#endif
